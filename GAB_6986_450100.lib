@@ -1,0 +1,99 @@
+﻿'This library assists with the usage of the 450100 call wrapper (Issue Material to Job From File, program WIR100)
+'Only parameter required is the filename
+'Multiple lines can be entered into the file to be uploaded all at once.
+'We will build the file here
+'F.Intrinsic.String.Build("Part(20),Rev(3),Location(2),Quantity(16),Lot(15),Bin(6),Heat(15),Serial(30),WO Number(6),WO Suffix(3),WO Sequence(6)")
+'The quantity has two different types of values. If you pass a whole number then you must multiply by 10000 in order to get a correct value for the qty you're issuing
+'If you pass a float, even with just .0, it will read that value as it is. 
+'The datatable is structed as follows:
+'Column		=	Parameter			=	Possible Values
+'==========================================================
+'Part		=	Part				=	17-20 characters
+'Rev		=	Rev					=	0-3 characters
+'Location	=	Location			=	
+'Quantity	=	Quantity			=	
+'Lot		=	Lot					=	
+'Bin		=	Bin					=	
+'Heat		=	Heat				=	
+'Serial		=	Serial				=	
+'WONumber	=	Work Order Number	=	######
+'WOSuffix	=	Work Order Suffix	=	###
+'WOSeq		=	Work Order Sequence	=	######
+'==========================================================
+Program.Sub.Preflight.Start
+V.Global.s450100Error.Declare(String)
+F.Data.DataTable.Create("450100",True)
+F.Data.DataTable.AddColumn("450100","Part","String")
+F.Data.DataTable.AddColumn("450100","Rev","String")
+F.Data.DataTable.AddColumn("450100","Location","String")
+F.Data.DataTable.AddColumn("450100","Quantity","String")
+F.Data.DataTable.AddColumn("450100","Lot","String")
+F.Data.DataTable.AddColumn("450100","Bin","String")
+F.Data.DataTable.AddColumn("450100","Heat","String")
+F.Data.DataTable.AddColumn("450100","Serial","String")
+F.Data.DataTable.AddColumn("450100","WONumber","String")
+F.Data.DataTable.AddColumn("450100","WOSuffix","String")
+F.Data.DataTable.AddColumn("450100","WOSeq","String")
+Program.Sub.Preflight.End
+
+
+Program.Sub.450100.Start
+F.Intrinsic.Control.Try
+	V.Local.sFileName.Declare(String)
+	V.Local.sFilePath.Declare(String)
+	V.Local.sFile.Declare(String)
+	
+	'Set file name
+	F.Intrinsic.String.Build("L{0}{1}{2}.txt",V.Caller.CompanyCode,V.Caller.Terminal,v.Args.TransID.right7,V.Local.sFileName)
+	'Set fully qualified path to create the file
+	F.Intrinsic.String.Build("{0}\{1}",V.Caller.FilesDir,V.Local.sFileName,V.Local.sFilePath)
+	
+	F.Intrinsic.Control.If(V.DataTable.450100.RowCount,>,0)
+		F.Data.DataView.Create("450100","450100V",22)
+		F.Data.DataView.ToString("450100","450100V",",",V.Ambient.NewLine,V.Local.sFile)
+		F.Data.DataView.Close("450100","450100V")
+	F.Intrinsic.Control.EndIf
+		
+	'Save information to a comma separated string
+	F.Intrinsic.File.String2File(V.Local.sFilePath,V.Local.sFile,1)
+	
+	'Switch to call program appropriately based on callwrapper type passed
+	F.Intrinsic.Control.SelectCase(V.Args.CallWrapperType)
+		F.Intrinsic.Control.Case(0)
+			F.Global.General.CallWrapperSync(450100,V.Local.sFileName)
+		F.Intrinsic.Control.Case(1)
+			F.Global.General.CallWrapperAsync(450100,V.Local.sFileName)
+	F.Intrinsic.Control.EndSelect
+
+	F.Data.DataTable.DeleteRow("450100")
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError450100,"Sub",V.Ambient.CurrentSubroutine,"ErrNo",V.Ambient.ErrorNumber,"ErrDesc",V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.450100.End
+
+'Calls 450100 with callwrapper type of 0
+Program.Sub.450100Sync.Start
+F.Intrinsic.Control.Try
+	F.Intrinsic.Control.CallSub(450100,"CallWrapperType",0,"TransID",v.Args.TransID)
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError450100,"Sub",V.Ambient.CurrentSubroutine,"ErrNo",V.Ambient.ErrorNumber,"ErrDesc",V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.450100Sync.End
+
+'Calls 450100 with callwrapper type of 1
+Program.Sub.450100Async.Start
+F.Intrinsic.Control.Try
+	F.Intrinsic.Control.CallSub(450100,"CallWrapperType",1,"TransID",v.Args.TransID)
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(CatchError450100,"Sub",V.Ambient.CurrentSubroutine,"ErrNo",V.Ambient.ErrorNumber,"ErrDesc",V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.450100Async.End
+
+Program.Sub.CatchError450100.Start
+F.Intrinsic.String.Build("{0}*!*{1}*!*{2}", V.Args.Sub, V.Args.ErrNo, V.Args.ErrDesc, V.Global.s450100Error)
+Program.Sub.CatchError450100.End
+
+Program.Sub.Comments.Start
+${$5$}$2.0.0.0$}$2
+${$6$}$bstevens$}$20221129162727884$}$3Pg7+K2MGztoXyjxMVZqWaM5g3GOUsSNBds2ZN5hF7aeOoZ6is1Y03oa9XWenwHzvCZvWOTzA7smFld40c+SbQ==
+Program.Sub.Comments.End
